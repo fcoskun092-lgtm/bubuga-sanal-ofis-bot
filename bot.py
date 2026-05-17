@@ -5,7 +5,7 @@ import threading
 from datetime import datetime
 import anthropic
 
-TOKEN = "8757440726:AAEhGqpaDpNNcKSpvbpH4HWx6UPPKpfi8HE"
+TOKEN = "8757440726:AAEFAMTg1zV3bhlCb7BMqGGmrkKsZHyQe9c"
 ADMIN_ID = 5523040957
 GRUP_ID = -3996063718
 ANTHROPIC_API_KEY = "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"
