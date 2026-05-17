@@ -7,7 +7,7 @@ import anthropic
 TOKEN = "8757440726:AAEhGqpaDpNNcKSpvbpH4HWx6UPPKpfi8HE"
 ADMIN_ID = 5523040957
 GRUP_ID = -3996063718
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = "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"
 
 bot = telebot.TeleBot(TOKEN)
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -141,7 +141,7 @@ def claude_cevap_al(departman, gorev):
     try:
         sistem = DEPARTMANLAR[departman]['sistem']
         mesaj = claude.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-3-5-sonnet-latest",
             max_tokens=1024,
             system=sistem,
             messages=[{"role": "user", "content": gorev}]
