@@ -639,4 +639,23 @@ if __name__ == "__main__":
     print("Grup etiketleri: @Genel @Grafik @Sosyal @Reklam @SEO @Musteri @Mockup @Yazilim @Finans")
     print("/ekip komutu ile tum ekibe soru sorabilirsiniz.")
     print("/gecmis komutu ile son 5 grup mesajini gorebilirsiniz.")
-    bot.polling(none_stop=True, interval=0, timeout=20)
+
+    # Telegram 409 Conflict hatasini azaltmak icin webhook ve eski update'leri temizle.
+    # Not: Ayni bot tokeni ile baska Railway deployment'i, lokal terminal veya sunucu calisiyorsa
+    # yine 409 alirsin. Tek aktif instance kalmali.
+    try:
+        bot.remove_webhook()
+        print("Telegram webhook temizlendi.")
+    except Exception as e:
+        print(f"Webhook temizleme hatasi: {e}")
+
+    try:
+        bot.infinity_polling(
+            timeout=20,
+            long_polling_timeout=20,
+            skip_pending=True,
+            none_stop=True
+        )
+    except TypeError:
+        # Eski pyTelegramBotAPI surumleri icin geri uyumlu polling.
+        bot.polling(none_stop=True, interval=0, timeout=20, skip_pending=True)
