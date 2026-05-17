@@ -1,18 +1,17 @@
 import telebot
 from telebot import types
 import sqlite3
+import threading
 from datetime import datetime
 import anthropic
 
 TOKEN = "8757440726:AAEhGqpaDpNNcKSpvbpH4HWx6UPPKpfi8HE"
 ADMIN_ID = 5523040957
 GRUP_ID = -3996063718
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = "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"
 
 bot = telebot.TeleBot(TOKEN)
-client = anthropic.Anthropic(
-    api_key=ANTHROPIC_API_KEY
-)
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 user_state = {}
 user_data = {}
@@ -139,26 +138,139 @@ def grup_mesaj_kaydet(kullanici, departman, mesaj, cevap, tarih):
             conn.close()
 
 
+
+def gorev_baslat(departman, aciklama, tarih):
+    conn = None
+    try:
+        conn = db_baglanti()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO gorevler (departman, aciklama, durum, tarih, cevap) VALUES (?, ?, ?, ?, ?)",
+            (departman, aciklama, 'Devam Ediyor', tarih, '')
+        )
+        conn.commit()
+        return cursor.lastrowid
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Gorev baslatma hatasi: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
+def gorev_cevap_guncelle(gorev_id, cevap, durum='Tamamlandi'):
+    conn = None
+    try:
+        conn = db_baglanti()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE gorevler SET cevap=?, durum=? WHERE id=?",
+            (cevap, durum, gorev_id)
+        )
+        conn.commit()
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Gorev guncelleme hatasi: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+
+def telegrama_uzun_mesaj_gonder(chat_id, metin, reply_markup=None):
+    limit = 3900
+    if metin is None:
+        metin = ""
+
+    metin = str(metin)
+
+    if len(metin) <= limit:
+        bot.send_message(chat_id, metin, reply_markup=reply_markup)
+        return
+
+    parcalar = [metin[i:i + limit] for i in range(0, len(metin), limit)]
+    for index, parca in enumerate(parcalar):
+        if index == len(parcalar) - 1:
+            bot.send_message(chat_id, parca, reply_markup=reply_markup)
+        else:
+            bot.send_message(chat_id, parca)
+
+
+def arka_planda_gorev_calistir(gorev_id, departman, aciklama, kullanici_chat_id, grup_id=None):
+    try:
+        cevap = claude_cevap_al(departman, aciklama)
+        gorev_cevap_guncelle(gorev_id, cevap, 'Tamamlandi')
+
+        sonuc_mesaji = (
+            f"Gorev ID: {gorev_id}\n"
+            f"Departman: {DEPARTMANLAR[departman]['emoji']} {departman}\n"
+            f"Durum: Tamamlandi\n\n"
+            f"Cevap:\n{cevap}"
+        )
+
+        telegrama_uzun_mesaj_gonder(kullanici_chat_id, sonuc_mesaji, reply_markup=ana_menu())
+
+        if grup_id:
+            grup_mesaji = (
+                f"🆕 Yeni Gorev Tamamlandi!\n"
+                f"ID: {gorev_id}\n"
+                f"Departman: {DEPARTMANLAR[departman]['emoji']} {departman}\n"
+                f"Gorev: {aciklama}\n\n"
+                f"Cevap:\n{cevap}"
+            )
+            telegrama_uzun_mesaj_gonder(grup_id, grup_mesaji)
+
+    except Exception as e:
+        hata = f"Hata olustu: {e}"
+        gorev_cevap_guncelle(gorev_id, hata, 'Hata')
+        telegrama_uzun_mesaj_gonder(
+            kullanici_chat_id,
+            f"Gorev ID: {gorev_id}\nDepartman: {departman}\nDurum: Hata\n\n{hata}",
+            reply_markup=ana_menu()
+        )
+
+
+def arka_planda_grup_mesaji_calistir(chat_id, kullanici, hedef_departman, metin, tarih):
+    try:
+        cevap = claude_cevap_al(hedef_departman, metin)
+        bot.send_message(
+            chat_id,
+            f"{DEPARTMANLAR[hedef_departman]['emoji']} *{hedef_departman}*\n\n{cevap}",
+            parse_mode='Markdown'
+        )
+        grup_mesaj_kaydet(kullanici, hedef_departman, metin, cevap, tarih)
+    except Exception as e:
+        bot.send_message(chat_id, f"{DEPARTMANLAR[hedef_departman]['emoji']} {hedef_departman} cevap veremedi: {e}")
+
+
+def arka_planda_ekip_calistir(chat_id, kullanici, soru, tarih):
+    for departman_adi, departman_bilgi in DEPARTMANLAR.items():
+        try:
+            cevap = claude_cevap_al(departman_adi, soru)
+            bot.send_message(
+                chat_id,
+                f"{departman_bilgi['emoji']} *{departman_adi}*\n\n{cevap}",
+                parse_mode='Markdown'
+            )
+            grup_mesaj_kaydet(kullanici, departman_adi, soru, cevap, tarih)
+        except Exception as e:
+            bot.send_message(chat_id, f"{departman_bilgi['emoji']} {departman_adi} cevap veremedi: {e}")
+
+
 def claude_cevap_al(departman, gorev):
     try:
         sistem = DEPARTMANLAR[departman]['sistem']
-
-        response = client.messages.create(
+        mesaj = client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=1024,
             system=sistem,
-            messages=[
-                {
-                    "role": "user",
-                    "content": gorev
-                }
-            ]
+            messages=[{"role": "user", "content": gorev}]
         )
-
-        return response.content[0].text
-
+        return mesaj.content[0].text
     except Exception as e:
-        return f"Hata olustu: {str(e)}"
+        return f"Hata olustu: {e}"
 
 
 def ana_menu():
@@ -217,22 +329,15 @@ def ekip_cevap(message):
         bot.send_message(message.chat.id, "Lutfen bir soru yazin. Ornek: /ekip Yeni sezon icin ne yapmaliyiz?")
         return
 
-    bot.send_message(message.chat.id, "Tum ekip sorunuzu degerlendiriyor, lutfen bekleyin...")
+    bot.send_message(message.chat.id, "Tum ekip sorunuzu degerlendiriyor. Cevaplar hazir oldukca buradan gelecek.")
     tarih = datetime.now().strftime('%d.%m.%Y %H:%M')
     kullanici = message.from_user.first_name or "Kullanici"
 
-    for departman_adi, departman_bilgi in DEPARTMANLAR.items():
-        try:
-            cevap = claude_cevap_al(departman_adi, soru)
-            bot.send_message(
-                message.chat.id,
-                f"{departman_bilgi['emoji']} *{departman_adi}*\n\n{cevap}",
-                parse_mode='Markdown'
-            )
-            grup_mesaj_kaydet(kullanici, departman_adi, soru, cevap, tarih)
-        except Exception as e:
-            bot.send_message(message.chat.id, f"{departman_bilgi['emoji']} {departman_adi} cevap veremedi: {e}")
-
+    threading.Thread(
+        target=arka_planda_ekip_calistir,
+        args=(message.chat.id, kullanici, soru, tarih),
+        daemon=True
+    ).start()
 
 @bot.message_handler(func=lambda m: m.chat.type in ['group', 'supergroup'])
 def grup_mesaj_isle(message):
@@ -261,20 +366,15 @@ def grup_mesaj_isle(message):
 
     bot.send_message(
         message.chat.id,
-        f"{DEPARTMANLAR[hedef_departman]['emoji']} *{hedef_departman}* yaziyor...",
+        f"{DEPARTMANLAR[hedef_departman]['emoji']} *{hedef_departman}* gorevi aldi. Cevap hazir olunca buradan gelecek.",
         parse_mode='Markdown'
     )
 
-    cevap = claude_cevap_al(hedef_departman, metin)
-
-    bot.send_message(
-        message.chat.id,
-        f"{DEPARTMANLAR[hedef_departman]['emoji']} *{hedef_departman}*\n\n{cevap}",
-        parse_mode='Markdown'
-    )
-
-    grup_mesaj_kaydet(kullanici, hedef_departman, metin, cevap, tarih)
-
+    threading.Thread(
+        target=arka_planda_grup_mesaji_calistir,
+        args=(message.chat.id, kullanici, hedef_departman, metin, tarih),
+        daemon=True
+    ).start()
 
 @bot.message_handler(func=lambda m: m.text == 'Gorev Ekle' and m.chat.type == 'private')
 def gorev_ekle_baslat(message):
@@ -308,25 +408,24 @@ def aciklama_al(message):
     aciklama = message.text
     tarih = datetime.now().strftime('%d.%m.%Y %H:%M')
 
-    bot.send_message(message.chat.id, f"{DEPARTMANLAR[departman]['emoji']} {departman} gorevi aliyor, lutfen bekleyin...")
-
-    cevap = claude_cevap_al(departman, aciklama)
-    gorev_id = gorevi_kaydet(departman, aciklama, tarih, cevap)
+    gorev_id = gorev_baslat(departman, aciklama, tarih)
 
     user_state.pop(message.from_user.id, None)
     user_data.pop(message.from_user.id, None)
 
     bot.send_message(
         message.chat.id,
-        f"Gorev ID: {gorev_id}\nDepartman: {DEPARTMANLAR[departman]['emoji']} {departman}\n\nCevap:\n{cevap}",
+        f"{DEPARTMANLAR[departman]['emoji']} {departman} gorevi aldi.\n"
+        f"Gorev ID: {gorev_id}\n"
+        f"Durum: Arka planda calisiyor. Sonuc hazir olunca buradan gelecek.",
         reply_markup=ana_menu()
     )
 
-    bot.send_message(
-        GRUP_ID,
-        f"🆕 Yeni Gorev Tamamlandi!\nID: {gorev_id}\nDepartman: {DEPARTMANLAR[departman]['emoji']} {departman}\nGorev: {aciklama}\n\nCevap:\n{cevap}"
-    )
-
+    threading.Thread(
+        target=arka_planda_gorev_calistir,
+        args=(gorev_id, departman, aciklama, message.chat.id, GRUP_ID),
+        daemon=True
+    ).start()
 
 @bot.message_handler(func=lambda m: m.text == 'Gorevleri Listele' and m.chat.type == 'private')
 def gorevleri_listele(message):
