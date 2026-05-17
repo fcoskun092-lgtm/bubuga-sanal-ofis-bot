@@ -7,7 +7,7 @@ import anthropic
 TOKEN = "8757440726:AAEhGqpaDpNNcKSpvbpH4HWx6UPPKpfi8HE"
 ADMIN_ID = 5523040957
 GRUP_ID = -3996063718
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = "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"
 
 bot = telebot.TeleBot(TOKEN)
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -15,20 +15,27 @@ user_state = {}
 user_data = {}
 
 DEPARTMANLAR = {
-    'Genel Mudur': 'Sen bir şirketin Genel Müdürüsün. Görevleri analiz et, departmanlara yönlendir ve rapor sun.',
-    'Grafik Tasarimci': 'Sen bir Grafik Tasarımcısın. Şirket için görsel tasarım önerileri sun.',
-    'Sosyal Medya': 'Sen bir Sosyal Medya Uzmanısın. Instagram, Facebook içerikleri üret.',
-    'Meta Reklam': 'Sen bir Meta Reklam Uzmanısın. Facebook ve Instagram reklam kampanyaları yönet.',
-    'Google SEO': 'Sen bir Google SEO Uzmanısın. Web sitesi SEO ve reklam çalışmaları yap.',
-    'Musteri Temsilcisi': 'Sen bir Müşteri Temsilcisisin. Müşterilere profesyonel cevaplar ver.',
-    'Mockup Uzmani': 'Sen bir Mockup Uzmanısın. Tasarımları modeller üzerinde görselleştir.',
-    'Yazilimci': 'Sen bir Yazılımcısın. Teknik konularda destek ver.',
-    'Finans Direktoru': 'Sen bir Finans Direktörüsün. Satış ve karlılık raporları sun.'
+    'Genel Mudur': 'Sen bir sirketin Genel Mudurusun. Gorevleri analiz et, departmanlara yonlendir ve rapor sun.',
+    'Grafik Tasarimci': 'Sen bir Grafik Tasarimcisin. Sirket icin gorsel tasarim onerileri sun.',
+    'Sosyal Medya': 'Sen bir Sosyal Medya Uzmanisın. Instagram, Facebook icerikleri uret.',
+    'Meta Reklam': 'Sen bir Meta Reklam Uzmanisın. Facebook ve Instagram reklam kampanyalari yonet.',
+    'Google SEO': 'Sen bir Google SEO Uzmanisın. Web sitesi SEO ve reklam calismalari yap.',
+    'Musteri Temsilcisi': 'Sen bir Musteri Temsilcisisin. Musterilere profesyonel cevaplar ver.',
+    'Mockup Uzmani': 'Sen bir Mockup Uzmanisın. Tasarimlari modeller uzerinde gorsellestir.',
+    'Yazilimci': 'Sen bir Yazilimcisin. Teknik konularda destek ver.',
+    'Finans Direktoru': 'Sen bir Finans Direktorusun. Satis ve karlilik raporlari sun.'
 }
 
 def db_baglanti():
     conn = sqlite3.connect('tasks.db')
-    conn.execute('CREATE TABLE IF NOT EXISTS gorevler (id INTEGER PRIMARY KEY AUTOINCREMENT, departman TEXT, aciklama TEXT, durum TEXT, tarih TEXT, cevap TEXT)')
+    conn.execute('''CREATE TABLE IF NOT EXISTS gorevler (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        departman TEXT,
+        aciklama TEXT,
+        durum TEXT,
+        tarih TEXT,
+        cevap TEXT
+    )''')
     conn.commit()
     return conn
 
@@ -41,7 +48,7 @@ def ana_menu():
 
 def departman_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row('Genel Mudur', 'Grafik Tasarimci')
+     markup.row('Genel Mudur', 'Grafik Tasarimci')
     markup.row('Sosyal Medya', 'Meta Reklam')
     markup.row('Google SEO', 'Musteri Temsilcisi')
     markup.row('Mockup Uzmani', 'Yazilimci')
@@ -49,11 +56,11 @@ def departman_menu():
     return markup
 
 def claude_cevap_al(departman, gorev):
-    sistem = DEPARTMANLAR.get(departman, 'Sen bir şirket çalışanısın.')
+    sistem = DEPARTMANLAR.get(departman, 'Sen bir sirket calisanisin.')
     mesaj = claude.messages.create(
         model="claude-3-5-sonnet-20241022",
-        max_tokens=1024
-    system=sistem,
+        max_tokens=1024,
+        system=sistem,
         messages=[{"role": "user", "content": gorev}]
     )
     return mesaj.content[0].text
@@ -92,7 +99,8 @@ def aciklama_al(message):
     tarih = datetime.now().strftime('%d.%m.%Y %H:%M')
     bot.send_message(message.chat.id, departman + " gorevi aliyor, lutfen bekleyin...")
     cevap = claude_cevap_al(departman, aciklama)
-    conn = db_baglanti()
+    conn = db_
+conn = db_baglanti()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO gorevler (departman, aciklama, durum, tarih, cevap) VALUES (?, ?, ?, ?, ?)", (departman, aciklama, 'Tamamlandi', tarih, cevap))
     conn.commit()
@@ -109,7 +117,7 @@ def gorevleri_listele(message):
         return
     conn = db_baglanti()
     cursor = conn.cursor()
-    cursor.execute("SELECT FROM gorevler")
+    cursor.execute("SELECT * FROM gorevler")
     gorevler = cursor.fetchall()
     conn.close()
     if not gorevler:
@@ -143,7 +151,6 @@ def gorevi_tamamla(message):
         bot.send_message(GRUP_ID, "Gorev Tamamlandi! ID: " + str(gorev_id))
     except:
         bot.send_message(message.chat.id, "Gecersiz ID!", reply_markup=ana_menu())
-
 @bot.message_handler(func=lambda m: m.text == 'Gorevi Sil')
 def gorevi_sil_baslat(message):
     if message.from_user.id != ADMIN_ID:
@@ -166,8 +173,7 @@ def gorevi_sil(message):
         bot.send_message(message.chat.id, "Gorev " + str(gorev_id) + " silindi!", reply_markup=ana_menu())
         bot.send_message(GRUP_ID, "Gorev Silindi! ID: " + str(gorev_id))
     except:
-        bot.send_message(message.chat.id, "
-Gecersiz ID!", reply_markup=ana_menu())
+        bot.send_message(message.chat.id, "Gecersiz ID!", reply_markup=ana_menu())
 
 @bot.message_handler(func=lambda m: m.text == 'Durum Raporu')
 def durum_raporu(message):
@@ -184,9 +190,4 @@ def durum_raporu(message):
     cursor.execute("SELECT departman, COUNT(*) FROM gorevler GROUP BY departman")
     departmanlar = cursor.fetchall()
     conn.close()
-    mesaj = "Durum Raporu\n\nToplam: " + str(toplam) + "\nTamamlandi: " + str(tamamlandi) + "\nBekliyor: " + str(bekliyor) + "\n\nDepartman Bazli:\n"
-    for d in departmanlar:
-        mesaj += d[0] + ": " + str(d[1]) + " gorev\n"
-    bot.send_message(message.chat.id, mesaj, reply_markup=ana_menu())
-
-bot.polling(none_stop=True)
+    mesaj = "Durum Raporu\n\nToplam: " + str
