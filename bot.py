@@ -48,7 +48,7 @@ def ana_menu():
 
 def departman_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-     markup.row('Genel Mudur', 'Grafik Tasarimci')
+    markup.row('Genel Mudur', 'Grafik Tasarimci')
     markup.row('Sosyal Medya', 'Meta Reklam')
     markup.row('Google SEO', 'Musteri Temsilcisi')
     markup.row('Mockup Uzmani', 'Yazilimci')
