@@ -5,10 +5,10 @@ import threading
 from datetime import datetime
 import anthropic
 
-TOKEN = "8757440726:AAEFAMTg1zV3bhlCb7BMqGGmrkKsZHyQe9c"
+TOKEN = "8757440726:AAEhGqpaDpNNcKSpvbpH4HWx6UPPKpfi8HE"
 ADMIN_ID = 5523040957
 GRUP_ID = -3996063718
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = "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"
 
 bot = telebot.TeleBot(TOKEN)
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -640,27 +640,19 @@ if __name__ == "__main__":
     print("/ekip komutu ile tum ekibe soru sorabilirsiniz.")
     print("/gecmis komutu ile son 5 grup mesajini gorebilirsiniz.")
 
-    # Telegram 409 Conflict hatasini azaltmak icin webhook ve eski update'leri temizle.
-    # Not: Ayni bot tokeni ile baska Railway deployment'i, lokal terminal veya sunucu calisiyorsa
-    # yine 409 alirsin. Tek aktif instance kalmali.
     try:
         bot.remove_webhook()
         print("Telegram webhook temizlendi.")
     except Exception as e:
         print(f"Webhook temizleme hatasi: {e}")
 
-    try:
-        while True:
-    try:
-        print("Bot baslatiliyor...")
-        bot.infinity_polling(
-            timeout=10,
-            long_polling_timeout=10,
-            skip_pending=True
-        )
-    except Exception as e:
-        print(f"Hata: {e}")
-        )
-    except TypeError:
-        # Eski pyTelegramBotAPI surumleri icin geri uyumlu polling.
-        bot.polling(none_stop=True, interval=0, timeout=20, skip_pending=True)
+    while True:
+        try:
+            print("Bot polling baslatiliyor...")
+            bot.infinity_polling(
+                timeout=10,
+                long_polling_timeout=10,
+                skip_pending=True
+            )
+        except Exception as e:
+            print(f"Polling hatasi, yeniden baslatiliyor: {e}")
