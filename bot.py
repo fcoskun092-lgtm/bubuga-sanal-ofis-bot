@@ -142,15 +142,23 @@ def grup_mesaj_kaydet(kullanici, departman, mesaj, cevap, tarih):
 def claude_cevap_al(departman, gorev):
     try:
         sistem = DEPARTMANLAR[departman]['sistem']
-        mesaj = claude.messages.create(
-            model="claude-3-5-sonnet-latest",
+
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
             max_tokens=1024,
             system=sistem,
-            messages=[{"role": "user", "content": gorev}]
+            messages=[
+                {
+                    "role": "user",
+                    "content": gorev
+                }
+            ]
         )
-        return mesaj.content[0].text
+
+        return response.content[0].text
+
     except Exception as e:
-        return f"Hata olustu: {e}"
+        return f"Hata olustu: {str(e)}"
 
 
 def ana_menu():
