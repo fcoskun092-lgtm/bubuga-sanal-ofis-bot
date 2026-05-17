@@ -10,7 +10,9 @@ GRUP_ID = -3996063718
 ANTHROPIC_API_KEY = "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"
 
 bot = telebot.TeleBot(TOKEN)
-claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+client = anthropic.Anthropic(
+    api_key=ANTHROPIC_API_KEY
+)
 
 user_state = {}
 user_data = {}
