@@ -650,11 +650,16 @@ if __name__ == "__main__":
         print(f"Webhook temizleme hatasi: {e}")
 
     try:
+        while True:
+    try:
+        print("Bot baslatiliyor...")
         bot.infinity_polling(
-            timeout=20,
-            long_polling_timeout=20,
-            skip_pending=True,
-            none_stop=True
+            timeout=10,
+            long_polling_timeout=10,
+            skip_pending=True
+        )
+    except Exception as e:
+        print(f"Hata: {e}")
         )
     except TypeError:
         # Eski pyTelegramBotAPI surumleri icin geri uyumlu polling.
