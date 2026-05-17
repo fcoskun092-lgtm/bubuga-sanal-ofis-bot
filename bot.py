@@ -179,6 +179,15 @@ def gorev_cevap_guncelle(gorev_id, cevap, durum='Tamamlandi'):
             conn.close()
 
 
+def guvenli_mesaj_gonder(chat_id, metin, reply_markup=None, parse_mode=None):
+    try:
+        bot.send_message(chat_id, metin, reply_markup=reply_markup, parse_mode=parse_mode)
+        return True
+    except Exception as e:
+        print(f"Telegram mesaj gonderme hatasi. chat_id={chat_id}, hata={e}")
+        return False
+
+
 def telegrama_uzun_mesaj_gonder(chat_id, metin, reply_markup=None):
     limit = 3900
     if metin is None:
@@ -187,18 +196,22 @@ def telegrama_uzun_mesaj_gonder(chat_id, metin, reply_markup=None):
     metin = str(metin)
 
     if len(metin) <= limit:
-        bot.send_message(chat_id, metin, reply_markup=reply_markup)
-        return
+        return guvenli_mesaj_gonder(chat_id, metin, reply_markup=reply_markup)
 
+    basarili = True
     parcalar = [metin[i:i + limit] for i in range(0, len(metin), limit)]
     for index, parca in enumerate(parcalar):
         if index == len(parcalar) - 1:
-            bot.send_message(chat_id, parca, reply_markup=reply_markup)
+            ok = guvenli_mesaj_gonder(chat_id, parca, reply_markup=reply_markup)
         else:
-            bot.send_message(chat_id, parca)
+            ok = guvenli_mesaj_gonder(chat_id, parca)
+        basarili = basarili and ok
 
+    return basarili
 
 def arka_planda_gorev_calistir(gorev_id, departman, aciklama, kullanici_chat_id, grup_id=None):
+    cevap = None
+
     try:
         cevap = claude_cevap_al(departman, aciklama)
         gorev_cevap_guncelle(gorev_id, cevap, 'Tamamlandi')
@@ -212,6 +225,7 @@ def arka_planda_gorev_calistir(gorev_id, departman, aciklama, kullanici_chat_id,
 
         telegrama_uzun_mesaj_gonder(kullanici_chat_id, sonuc_mesaji, reply_markup=ana_menu())
 
+        # Grup bildirimi zorunlu degil. Grup ID yanlissa ana gorev hata sayilmaz.
         if grup_id:
             grup_mesaji = (
                 f"🆕 Yeni Gorev Tamamlandi!\n"
@@ -231,18 +245,17 @@ def arka_planda_gorev_calistir(gorev_id, departman, aciklama, kullanici_chat_id,
             reply_markup=ana_menu()
         )
 
-
 def arka_planda_grup_mesaji_calistir(chat_id, kullanici, hedef_departman, metin, tarih):
     try:
         cevap = claude_cevap_al(hedef_departman, metin)
         bot.send_message(
             chat_id,
-            f"{DEPARTMANLAR[hedef_departman]['emoji']} *{hedef_departman}*\n\n{cevap}",
-            parse_mode='Markdown'
+            f"{DEPARTMANLAR[hedef_departman]['emoji']} {hedef_departman}\n\n{cevap}",
+            parse_mode=None
         )
         grup_mesaj_kaydet(kullanici, hedef_departman, metin, cevap, tarih)
     except Exception as e:
-        bot.send_message(chat_id, f"{DEPARTMANLAR[hedef_departman]['emoji']} {hedef_departman} cevap veremedi: {e}")
+        guvenli_mesaj_gonder(chat_id, f"{DEPARTMANLAR[hedef_departman]['emoji']} {hedef_departman} cevap veremedi: {e}")
 
 
 def arka_planda_ekip_calistir(chat_id, kullanici, soru, tarih):
@@ -251,12 +264,12 @@ def arka_planda_ekip_calistir(chat_id, kullanici, soru, tarih):
             cevap = claude_cevap_al(departman_adi, soru)
             bot.send_message(
                 chat_id,
-                f"{departman_bilgi['emoji']} *{departman_adi}*\n\n{cevap}",
-                parse_mode='Markdown'
+                f"{departman_bilgi['emoji']} {departman_adi}\n\n{cevap}",
+                parse_mode=None
             )
             grup_mesaj_kaydet(kullanici, departman_adi, soru, cevap, tarih)
         except Exception as e:
-            bot.send_message(chat_id, f"{departman_bilgi['emoji']} {departman_adi} cevap veremedi: {e}")
+            guvenli_mesaj_gonder(chat_id, f"{departman_bilgi['emoji']} {departman_adi} cevap veremedi: {e}")
 
 
 def claude_cevap_al(departman, gorev):
@@ -312,24 +325,24 @@ def start(message):
         return
 
     if message.from_user.id != ADMIN_ID:
-        bot.send_message(message.chat.id, "Yetkisiz erisim!")
+        guvenli_mesaj_gonder(message.chat.id, "Yetkisiz erisim!")
         return
 
-    bot.send_message(message.chat.id, "Bubuga Sanal Ofis'e Hosgeldiniz!", reply_markup=ana_menu())
+    guvenli_mesaj_gonder(message.chat.id, "Bubuga Sanal Ofis'e Hosgeldiniz!", reply_markup=ana_menu())
 
 
 @bot.message_handler(commands=['ekip'])
 def ekip_cevap(message):
     if message.chat.type not in ['group', 'supergroup']:
-        bot.send_message(message.chat.id, "Bu komut sadece grupta kullanilabilir!")
+        guvenli_mesaj_gonder(message.chat.id, "Bu komut sadece grupta kullanilabilir!")
         return
 
     soru = message.text.replace('/ekip', '').strip()
     if not soru:
-        bot.send_message(message.chat.id, "Lutfen bir soru yazin. Ornek: /ekip Yeni sezon icin ne yapmaliyiz?")
+        guvenli_mesaj_gonder(message.chat.id, "Lutfen bir soru yazin. Ornek: /ekip Yeni sezon icin ne yapmaliyiz?")
         return
 
-    bot.send_message(message.chat.id, "Tum ekip sorunuzu degerlendiriyor. Cevaplar hazir oldukca buradan gelecek.")
+    guvenli_mesaj_gonder(message.chat.id, "Tum ekip sorunuzu degerlendiriyor. Cevaplar hazir oldukca buradan gelecek.")
     tarih = datetime.now().strftime('%d.%m.%Y %H:%M')
     kullanici = message.from_user.first_name or "Kullanici"
 
@@ -358,7 +371,7 @@ def grup_mesaj_isle(message):
         return
 
     if not metin:
-        bot.send_message(message.chat.id, f"{DEPARTMANLAR[hedef_departman]['emoji']} Lutfen bir mesaj yazin!")
+        guvenli_mesaj_gonder(message.chat.id, f"{DEPARTMANLAR[hedef_departman]['emoji']} Lutfen bir mesaj yazin!")
         return
 
     tarih = datetime.now().strftime('%d.%m.%Y %H:%M')
@@ -366,8 +379,8 @@ def grup_mesaj_isle(message):
 
     bot.send_message(
         message.chat.id,
-        f"{DEPARTMANLAR[hedef_departman]['emoji']} *{hedef_departman}* gorevi aldi. Cevap hazir olunca buradan gelecek.",
-        parse_mode='Markdown'
+        f"{DEPARTMANLAR[hedef_departman]['emoji']} {hedef_departman} gorevi aldi. Cevap hazir olunca buradan gelecek.",
+        parse_mode=None
     )
 
     threading.Thread(
@@ -382,7 +395,7 @@ def gorev_ekle_baslat(message):
         return
 
     user_state[message.from_user.id] = 'departman_seciliyor'
-    bot.send_message(message.chat.id, "Departman secin:", reply_markup=departman_menu())
+    guvenli_mesaj_gonder(message.chat.id, "Departman secin:", reply_markup=departman_menu())
 
 
 @bot.message_handler(func=lambda m: user_state.get(m.from_user.id) == 'departman_seciliyor')
@@ -391,12 +404,12 @@ def departman_sec(message):
         return
 
     if message.text not in DEPARTMANLAR:
-        bot.send_message(message.chat.id, "Lutfen listeden secin!")
+        guvenli_mesaj_gonder(message.chat.id, "Lutfen listeden secin!")
         return
 
     user_data[message.from_user.id] = {'departman': message.text}
     user_state[message.from_user.id] = 'aciklama_bekleniyor'
-    bot.send_message(message.chat.id, "Gorevi yazin:", reply_markup=types.ReplyKeyboardRemove())
+    guvenli_mesaj_gonder(message.chat.id, "Gorevi yazin:", reply_markup=types.ReplyKeyboardRemove())
 
 
 @bot.message_handler(func=lambda m: user_state.get(m.from_user.id) == 'aciklama_bekleniyor')
@@ -440,7 +453,7 @@ def gorevleri_listele(message):
         gorevler = cursor.fetchall()
 
         if not gorevler:
-            bot.send_message(message.chat.id, "Hic gorev yok!")
+            guvenli_mesaj_gonder(message.chat.id, "Hic gorev yok!")
             return
 
         for g in gorevler:
@@ -453,11 +466,11 @@ def gorevleri_listele(message):
                 f"Tarih: {g[4]}\n"
                 f"Cevap: {g[5]}"
             )
-            bot.send_message(message.chat.id, mesaj)
+            guvenli_mesaj_gonder(message.chat.id, mesaj)
 
-        bot.send_message(message.chat.id, "Liste tamamlandi!", reply_markup=ana_menu())
+        guvenli_mesaj_gonder(message.chat.id, "Liste tamamlandi!", reply_markup=ana_menu())
     except Exception as e:
-        bot.send_message(message.chat.id, f"Hata: {e}")
+        guvenli_mesaj_gonder(message.chat.id, f"Hata: {e}")
     finally:
         if conn:
             conn.close()
@@ -469,7 +482,7 @@ def gorevi_tamamla_baslat(message):
         return
 
     user_state[message.from_user.id] = 'tamamla_id_bekleniyor'
-    bot.send_message(message.chat.id, "Tamamlanacak gorev ID sini girin:", reply_markup=types.ReplyKeyboardRemove())
+    guvenli_mesaj_gonder(message.chat.id, "Tamamlanacak gorev ID sini girin:", reply_markup=types.ReplyKeyboardRemove())
 
 
 @bot.message_handler(func=lambda m: user_state.get(m.from_user.id) == 'tamamla_id_bekleniyor')
@@ -488,17 +501,17 @@ def gorevi_tamamla(message):
         user_state.pop(message.from_user.id, None)
 
         if cursor.rowcount == 0:
-            bot.send_message(message.chat.id, f"{gorev_id} ID numarali gorev bulunamadi.", reply_markup=ana_menu())
+            guvenli_mesaj_gonder(message.chat.id, f"{gorev_id} ID numarali gorev bulunamadi.", reply_markup=ana_menu())
             return
 
-        bot.send_message(message.chat.id, f"Gorev {gorev_id} tamamlandi!", reply_markup=ana_menu())
-        bot.send_message(GRUP_ID, f"✅ Gorev Tamamlandi! ID: {gorev_id}")
+        guvenli_mesaj_gonder(message.chat.id, f"Gorev {gorev_id} tamamlandi!", reply_markup=ana_menu())
+        guvenli_mesaj_gonder(GRUP_ID, f"✅ Gorev Tamamlandi! ID: {gorev_id}")
     except ValueError:
         user_state.pop(message.from_user.id, None)
-        bot.send_message(message.chat.id, "Gecersiz ID, lutfen sayi girin!", reply_markup=ana_menu())
+        guvenli_mesaj_gonder(message.chat.id, "Gecersiz ID, lutfen sayi girin!", reply_markup=ana_menu())
     except Exception as e:
         user_state.pop(message.from_user.id, None)
-        bot.send_message(message.chat.id, f"Hata: {e}", reply_markup=ana_menu())
+        guvenli_mesaj_gonder(message.chat.id, f"Hata: {e}", reply_markup=ana_menu())
     finally:
         if conn:
             conn.close()
@@ -510,7 +523,7 @@ def gorevi_sil_baslat(message):
         return
 
     user_state[message.from_user.id] = 'sil_id_bekleniyor'
-    bot.send_message(message.chat.id, "Silinecek gorev ID sini girin:", reply_markup=types.ReplyKeyboardRemove())
+    guvenli_mesaj_gonder(message.chat.id, "Silinecek gorev ID sini girin:", reply_markup=types.ReplyKeyboardRemove())
 
 
 @bot.message_handler(func=lambda m: user_state.get(m.from_user.id) == 'sil_id_bekleniyor')
@@ -529,17 +542,17 @@ def gorevi_sil(message):
         user_state.pop(message.from_user.id, None)
 
         if cursor.rowcount == 0:
-            bot.send_message(message.chat.id, f"{gorev_id} ID numarali gorev bulunamadi.", reply_markup=ana_menu())
+            guvenli_mesaj_gonder(message.chat.id, f"{gorev_id} ID numarali gorev bulunamadi.", reply_markup=ana_menu())
             return
 
-        bot.send_message(message.chat.id, f"Gorev {gorev_id} silindi!", reply_markup=ana_menu())
-        bot.send_message(GRUP_ID, f"🗑️ Gorev Silindi! ID: {gorev_id}")
+        guvenli_mesaj_gonder(message.chat.id, f"Gorev {gorev_id} silindi!", reply_markup=ana_menu())
+        guvenli_mesaj_gonder(GRUP_ID, f"🗑️ Gorev Silindi! ID: {gorev_id}")
     except ValueError:
         user_state.pop(message.from_user.id, None)
-        bot.send_message(message.chat.id, "Gecersiz ID, lutfen sayi girin!", reply_markup=ana_menu())
+        guvenli_mesaj_gonder(message.chat.id, "Gecersiz ID, lutfen sayi girin!", reply_markup=ana_menu())
     except Exception as e:
         user_state.pop(message.from_user.id, None)
-        bot.send_message(message.chat.id, f"Hata: {e}", reply_markup=ana_menu())
+        guvenli_mesaj_gonder(message.chat.id, f"Hata: {e}", reply_markup=ana_menu())
     finally:
         if conn:
             conn.close()
@@ -581,9 +594,9 @@ def durum_raporu(message):
             emoji = DEPARTMANLAR.get(dep[0], {}).get('emoji', '📋')
             rapor += f"{emoji} {dep[0]}: {dep[1]} gorev\n"
 
-        bot.send_message(message.chat.id, rapor, reply_markup=ana_menu())
+        guvenli_mesaj_gonder(message.chat.id, rapor, reply_markup=ana_menu())
     except Exception as e:
-        bot.send_message(message.chat.id, f"Hata: {e}", reply_markup=ana_menu())
+        guvenli_mesaj_gonder(message.chat.id, f"Hata: {e}", reply_markup=ana_menu())
     finally:
         if conn:
             conn.close()
@@ -604,7 +617,7 @@ def grup_gecmis(message):
         mesajlar = cursor.fetchall()
 
         if not mesajlar:
-            bot.send_message(message.chat.id, "Hic grup mesaji yok!")
+            guvenli_mesaj_gonder(message.chat.id, "Hic grup mesaji yok!")
             return
 
         for m in mesajlar:
@@ -614,7 +627,7 @@ def grup_gecmis(message):
                 f"👤 {m[0]} - {m[4]}\n{emoji} {m[1]}\n❓ {m[2]}\n💡 {m[3]}"
             )
     except Exception as e:
-        bot.send_message(message.chat.id, f"Hata: {e}")
+        guvenli_mesaj_gonder(message.chat.id, f"Hata: {e}")
     finally:
         if conn:
             conn.close()
