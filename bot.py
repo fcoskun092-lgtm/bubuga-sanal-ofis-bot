@@ -7,7 +7,7 @@ import anthropic
 TOKEN = "8757440726:AAEhGqpaDpNNcKSpvbpH4HWx6UPPKpfi8HE"
 ADMIN_ID = 5523040957
 GRUP_ID = -3996063718
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = "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"
 
 bot = telebot.TeleBot(TOKEN)
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -167,7 +167,7 @@ def gorevi_sil(message):
         bot.send_message(GRUP_ID, "Gorev Silindi! ID: " + str(gorev_id))
     except:
         bot.send_message(message.chat.id, "
-                         Gecersiz ID!", reply_markup=ana_menu())
+Gecersiz ID!", reply_markup=ana_menu())
 
 @bot.message_handler(func=lambda m: m.text == 'Durum Raporu')
 def durum_raporu(message):
